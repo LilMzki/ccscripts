@@ -45,26 +45,44 @@ end
 -- Draw full image from server response
 local function drawImageFromResponse(serverResponse)
     local rows = splitBySpace(serverResponse)
-    for y = 1, #rows do drawRow(rows[y], y) end
+    for y = 1, #rows do
+        drawRow(rows[y], y)
+    end
 end
 
 -- Send request and draw image
 local function fetchAndDraw()
     local ok, res = http.post(apiUrl, requestBody, requestHeaders)
-    if ok then
+
+    if not ok then
+        print("HTTP request failed!", res)
+        return
+    end
+
+    if type(res) == "table" then
+        -- 同期でレスポンスが返った場合
         local response = res.readAll()
-        drawImageFromResponse(response)
         res.close()
-        print("Response received.")
+        drawImageFromResponse(response)
+        print("Response received (sync).")
     else
-        -- Log error message when it failed
-        print("HTTP request failed!")
-        if res then
-            print("Error detail: " .. tostring(res))
+        -- res はリクエストID → イベントを待つ
+        local id = res
+        while true do
+            local event, p1, p2 = os.pullEvent()
+            if event == "http_success" and p1 == id then
+                local response = p2.readAll()
+                p2.close()
+                drawImageFromResponse(response)
+                print("Response received (async).")
+                break
+            elseif event == "http_failure" and p1 == id then
+                print("HTTP request failed (async):", p2)
+                break
+            end
         end
     end
 end
 
 -- Main execution
 fetchAndDraw()
-

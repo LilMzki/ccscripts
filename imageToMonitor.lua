@@ -28,7 +28,7 @@ end
 -- Convert hex digit (as string) to CC color number
 local function hexToColor(hexChar)
     local number = tonumber(hexChar, 16)
-    return math.pow(2, number)
+    return 2 ^ number  -- math.pow(2, number) と同じ
 end
 
 -- Draw one row of pixels on the monitor
@@ -52,34 +52,16 @@ end
 
 -- Send request and draw image
 local function fetchAndDraw()
-    local ok, res = http.post(apiUrl, requestBody, requestHeaders)
-
-    if not ok then
-        print("HTTP request failed!", res)
-        return
-    end
-
-    if type(res) == "table" then
-        -- 同期でレスポンスが返った場合
+    local res, err = http.post(apiUrl, requestBody, requestHeaders)
+    if res then
         local response = res.readAll()
         res.close()
         drawImageFromResponse(response)
-        print("Response received (sync).")
+        print("Response received.")
     else
-        -- res はリクエストID → イベントを待つ
-        local id = res
-        while true do
-            local event, p1, p2 = os.pullEvent()
-            if event == "http_success" and p1 == id then
-                local response = p2.readAll()
-                p2.close()
-                drawImageFromResponse(response)
-                print("Response received (async).")
-                break
-            elseif event == "http_failure" and p1 == id then
-                print("HTTP request failed (async):", p2)
-                break
-            end
+        print("HTTP request failed!")
+        if err then
+            print("Error detail: " .. tostring(err))
         end
     end
 end

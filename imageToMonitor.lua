@@ -57,9 +57,14 @@ local function fetchAndDraw()
         res.close()
         print("Response received.")
     else
+        -- Log error message when it failed
         print("HTTP request failed!")
+        if res then
+            print("Error detail: " .. tostring(res))
+        end
     end
 end
 
 -- Main execution
 fetchAndDraw()
+

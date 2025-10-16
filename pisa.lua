@@ -1,11 +1,11 @@
 -- =========================================================
--- Leaning Twin-Tower Builder (Order-Optimized)
---  - 外周: r=19, ディスク2層 + 柱12層 を1バンドルとして無限積み。バンドル毎に中心X+1。
---  - 内周: r=15, 同じ中心オフセットで円柱（各Yでリングを打つ）。
+-- Leaning Twin-Tower Builder (Resilient + Order-Optimized)
+--  - 外周: 半径19, ディスク2層 + 柱12層 を1バンドルとして無限積み。バンドル毎に中心X+1（ピサ風）。
+--  - 内周: 半径15, 同じ中心オフセットで円柱（各Yでリングを打つ）。
 --  - 置くブロックは在庫からランダム選択。燃料/在庫の自動監視。
---  - 主要修正点: 円周点を角度で並べ替え + 近接点から開始 + 層ごとにCW/CCW交互。
---    柱は角度順に「1本ずつ」積み切る。
---  ※ circlePoints / pillarPoints はあなたの“最適化版”をこのダミーに置き換えてください。
+--  - 下降は設計上ほぼ不要（常に上へ）。どうしても必要なら smartDescent。
+--  - 状態永続化：/tower_state に保存し、クラッシュ/中断から復帰可能。
+--  ※ circlePoints / pillarPoints はあなたの“最適化版”に置換してください（関数名・引数は固定）。
 -- =========================================================
 
 --------------------------
@@ -33,7 +33,7 @@ local function symmetryPositions(x, y, z)
     return result
 end
 
--- atan2 互換（Luaのバージョン差吸収）
+-- atan2 互換
 local function atan2(y, x)
     if math.atan2 then return math.atan2(y, x) end
     return math.atan(y, x)
@@ -109,12 +109,44 @@ local function face(direction)
 end
 
 --------------------------
+-- 永続化（セーブ / ロード）
+--------------------------
+local STATE_FILE = "/tower_state"
+
+local function saveState(state)
+    -- 走行中の姿勢も保存
+    state.turtlePos = {x = turtlePos.x, y = turtlePos.y, z = turtlePos.z}
+    state.turtleLook = turtleLook
+    local s = textutils.serialize(state)
+    local f = fs.open(STATE_FILE, "w")
+    f.write(s)
+    f.close()
+end
+
+local function loadState()
+    if not fs.exists(STATE_FILE) then return nil end
+    local f = fs.open(STATE_FILE, "r")
+    local s = f.readAll()
+    f.close()
+    local ok, t = pcall(textutils.unserialize, s)
+    if ok and type(t) == "table" then return t end
+    return nil
+end
+
+local function applyPoseFromState(state)
+    if not state or not state.turtlePos or not state.turtleLook then return end
+    -- 位置・向きは「信頼するが強制移動はしない」: 論理状態のみ復元
+    turtlePos = makePosTable(state.turtlePos.x, state.turtlePos.y, state.turtlePos.z)
+    turtleLook = state.turtleLook
+end
+
+--------------------------
 -- 燃料＆在庫
 --------------------------
 local MIN_FUEL_BUFFER = 1000
 local WAIT_SECONDS_ON_EMPTY = 8
 
-local function ensureFuel(level)
+local function ensureFuel(level, state)
     local fl = turtle.getFuelLevel()
     if fl == "unlimited" or fl >= level then return true end
 
@@ -128,6 +160,7 @@ local function ensureFuel(level)
         end
     end
     print("[Fuel] 燃料が不足。補給を待機中…")
+    if state then saveState(state) end
     while true do
         sleep(WAIT_SECONDS_ON_EMPTY)
         fl = turtle.getFuelLevel()
@@ -168,14 +201,18 @@ local function selectRandomPlaceableSlot()
 end
 
 --------------------------
--- 安全移動
+-- 最小限の“迂回”ユーティリティ（降下が必要な時のみ使用）
 --------------------------
 local function tryForward()
     ensureFuel(1)
     local tries = 0
     while not turtle.forward() do
         tries = tries + 1
-        if turtle.detect() then turtle.dig() else turtle.attack() end
+        if turtle.detect() then
+            turtle.dig()
+        else
+            turtle.attack()
+        end
         if tries > 20 then return false end
         sleep(0.05)
     end
@@ -204,7 +241,7 @@ local function tryUp()
     return true
 end
 
-local function tryDown()
+local function tryDown()  -- 通常は使わない。必要時のみ。
     ensureFuel(1)
     local tries = 0
     while not turtle.down() do
@@ -217,35 +254,81 @@ local function tryDown()
     return true
 end
 
-local function moveTo(dest) -- dest = {x=, y=, z=}
+-- 下降が必要なときの簡易経路探索（横に1～N歩ずれて降りる）
+local function smartDescent(toY, state)
+    -- 原則として使わない設計。どうしても必要なときだけ呼ぶ。
+    local MAX_SIDE = 6
+    while turtlePos.y > toY do
+        -- まず直下降
+        if tryDown() then goto continue end
+
+        -- 横へ最大MAX_SIDEまでズレ→下降→戻す の試行
+        local triedDirs = {DIR.POS_X, DIR.NEG_X, DIR.POS_Z, DIR.NEG_Z}
+        local descended = false
+        for _, d in ipairs(triedDirs) do
+            face(d)
+            local moved = 0
+            for s = 1, MAX_SIDE do
+                if not tryForward() then break end
+                moved = moved + 1
+                if tryDown() then
+                    descended = true
+                    break
+                end
+            end
+            -- 戻す（降りられたなら戻さず次のループで継続）
+            if not descended and moved > 0 then
+                face((d + 2) % 4)
+                for _ = 1, moved do tryForward() end
+            end
+            if descended then break end
+        end
+        if not descended then
+            print("[Path] 降下経路が見つかりません。周囲障害物の除去/整地が必要かも。")
+            if state then saveState(state) end
+            sleep(3)
+        end
+        ::continue::
+    end
+end
+
+--------------------------
+-- 絶対座標へ移動（Z→X→Y）。※Yは基本“上向き”のみ
+--------------------------
+local function moveTo(dest, state) -- dest = {x=, y=, z=}
+    -- Z方向
     local dz = dest.z - turtlePos.z
     if dz ~= 0 then
         face(dz > 0 and DIR.POS_Z or DIR.NEG_Z)
         for _ = 1, math.abs(dz) do assert(tryForward(), "前進不可") end
     end
+    -- X方向
     local dx = dest.x - turtlePos.x
     if dx ~= 0 then
         face(dx > 0 and DIR.POS_X or DIR.NEG_X)
         for _ = 1, math.abs(dx) do assert(tryForward(), "前進不可") end
     end
+    -- Y方向（原則上がるだけ）
     local dy = dest.y - turtlePos.y
     if dy > 0 then
         for _ = 1, dy do assert(tryUp(), "上昇不可") end
     elseif dy < 0 then
-        for _ = 1, -dy do assert(tryDown(), "下降不可") end
+        -- 設計上ここは呼ばれないが、保険としてスマート降下
+        smartDescent(dest.y, state)
     end
 end
 
 --------------------------
 -- 置く（真上から placeDown）
 --------------------------
-local function placeDownRandom()
+local function placeDownRandom(state)
     if turtle.detectDown() then return true end
     while true do
         local slot, already = selectRandomPlaceableSlot()
         if already then return true end
         if not slot then
             print("[Inventory] ブロックがありません。補充を待機中…")
+            if state then saveState(state) end
             sleep(WAIT_SECONDS_ON_EMPTY)
         else
             turtle.select(slot)
@@ -254,10 +337,10 @@ local function placeDownRandom()
     end
 end
 
-local function buildAt(pos)
-    moveTo(makePosTable(pos.x, pos.y + 1, pos.z))
-    ensureFuel(MIN_FUEL_BUFFER)
-    assert(placeDownRandom(), "設置失敗")
+local function buildAt(pos, state)
+    moveTo(makePosTable(pos.x, pos.y + 1, pos.z), state)
+    ensureFuel(MIN_FUEL_BUFFER, state)
+    assert(placeDownRandom(state), "設置失敗")
 end
 
 --------------------------
@@ -265,17 +348,7 @@ end
 --------------------------
 local TWO_PI = math.pi * 2
 
-local function keyXYZ(p) return ("%d:%d:%d"):format(p.x, p.y, p.z) end
 local function keyXZ(p)  return ("%d:%d"):format(p.x, p.z) end -- 同一Y層での重複用
-
-local function dedupByXYZo(pts)
-    local seen, out = {}, {}
-    for _, p in ipairs(pts) do
-        local k = keyXYZ(p)
-        if not seen[k] then seen[k] = true; table.insert(out, p) end
-    end
-    return out
-end
 
 local function dedupByXZ_sameY(pts)
     local seen, out = {}, {}
@@ -300,7 +373,7 @@ local function sortByAngle(pts, cx, cz, clockwise)
     return pts
 end
 
-local function rotateToNearestStart(ordered, preferPos) -- preferPos = {x,z}
+local function rotateToNearestStart(ordered, preferPos)
     if #ordered == 0 then return ordered end
     local min_i, min_d = 1, math.huge
     for i, p in ipairs(ordered) do
@@ -316,61 +389,62 @@ local function rotateToNearestStart(ordered, preferPos) -- preferPos = {x,z}
 end
 
 --------------------------
--- リング構築（順序最適化付き）
+-- リング構築（順序最適化 + 途中再開対応）
 --------------------------
-local function buildRingLayer(cx, y, cz, r, clockwise)
+local function buildRingLayer(cx, y, cz, r, clockwise, stateKey, state)
     local pts = circlePoints(cx, y, cz, r)
-
-    -- 1) 同一層での重複削除（x,z基準）
     pts = dedupByXZ_sameY(pts)
-
-    -- 2) 角度順に並べ替え
     pts = sortByAngle(pts, cx, cz, clockwise)
-
-    -- 3) 現在位置に近い点から開始（水平面での近傍）
     pts = rotateToNearestStart(pts, {x = turtlePos.x, z = turtlePos.z})
 
-    -- 4) 連続配置
-    for _, p in ipairs(pts) do
-        buildAt(p)
+    state[stateKey] = state[stateKey] or {i = 1}
+    local i = state[stateKey].i
+
+    while i <= #pts do
+        buildAt(pts[i], state)
+        i = i + 1
+        state[stateKey].i = i
+        saveState(state)
     end
+    -- 完了したら進捗をクリア
+    state[stateKey] = nil
+    saveState(state)
 end
 
 --------------------------
--- 柱群構築（角度順 + 1本ずつ積み切る）
+-- 柱群を“層ごとに”積む（下降ゼロ運用）
 --------------------------
-local function buildSinglePillarAt(x, baseY, z, height)
-    -- 近い層から開始（baseY+1 の高さで水平移動）
-    moveTo(makePosTable(x, baseY + 1, z))
-    for h = 0, height - 1 do
-        buildAt(makePosTable(x, baseY + h, z))
-    end
-    -- 終了位置を baseY+1 に揃える（次の柱へ水平移動しやすく）
-    moveTo(makePosTable(x, baseY + 1, z))
-end
-
-local function buildPillars(cx, baseY, cz, r, height, clockwise)
+local function buildPillarsLayered(cx, baseY, cz, r, height, clockwise, state)
+    -- 柱の基点を角度順に = 一層ごとにその順で置く
     local bases = pillarPoints(cx, baseY, cz, r)
-
-    -- 1) yはどうでも良いのでx,zで重複削除
     local tmp = {}
     for _, b in ipairs(bases) do table.insert(tmp, makePosTable(b.x, baseY, b.z)) end
     bases = dedupByXZ_sameY(tmp)
-
-    -- 2) 角度順
     bases = sortByAngle(bases, cx, cz, clockwise)
-
-    -- 3) 現在地に近い柱から開始
     bases = rotateToNearestStart(bases, {x = turtlePos.x, z = turtlePos.z})
 
-    -- 4) 柱を1本ずつ積み切る
-    for _, b in ipairs(bases) do
-        buildSinglePillarAt(b.x, baseY, b.z, height)
+    for h = 0, height - 1 do
+        local y = baseY + h
+        local key = ("pillar_y_%d"):format(y)
+        -- 再開用インデックス
+        state[key] = state[key] or {i = 1}
+        local i = state[key].i
+
+        while i <= #bases do
+            buildAt(makePosTable(bases[i].x, y, bases[i].z), state)
+            i = i + 1
+            state[key].i = i
+            saveState(state)
+        end
+        state[key] = nil
+        saveState(state)
+        -- 一層終わったら次層へ上昇（下降なし）
+        assert(tryUp(), "次層への上昇に失敗")
     end
 end
 
 --------------------------
--- メイン：無限積み
+-- メイン：無限積み（再開対応）
 --------------------------
 local OUTER_R = 19
 local INNER_R = 15
@@ -379,42 +453,96 @@ local PILLAR_H = 12
 local BUNDLE_H = DISK_H + PILLAR_H
 
 local function main()
-    print("== Leaning Twin-Tower Builder (Order-Optimized) ==")
-    print("在庫と燃料を投入しておいてください。開始します。")
-    ensureFuel(MIN_FUEL_BUFFER)
+    print("== Leaning Twin-Tower Builder (Resilient + Order-Optimized) ==")
 
-    local bundle = 0
+    -- 既存の状態があればロード
+    local state = loadState() or {
+        version = 2,
+        bundle = 0,
+        phase = "outer_disk",
+        layer = 0, -- ディスク中の相対レイヤ
+        innerLayer = 0,
+        pillarStarted = false,
+        cw0 = true, -- バンドルごとの初期回転方向
+    }
+    applyPoseFromState(state)
+
+    ensureFuel(MIN_FUEL_BUFFER, state)
+
     while true do
+        local bundle = state.bundle
         local centerX = bundle -- ピサの傾き: バンドル毎に +1
         local baseY   = bundle * BUNDLE_H
         local centerZ = 0
+
+        -- バンドル開始時に回転方向を決める（再開でも固定）
+        if state.phase == "outer_disk" and state.layer == 0 and state.innerLayer == 0 and not state.pillarStarted then
+            state.cw0 = (bundle % 2 == 0)
+            saveState(state)
+        end
+
         print(("--- Bundle %d | center=(%d,%d,%d) ---"):format(bundle, centerX, baseY, centerZ))
 
-        -- 交互にCW/CCWで巡回（上下移動時の横移動を削減）
-        local cw0 = (bundle % 2 == 0)
-
-        -- 外周ディスク 2層
-        for dy = 0, DISK_H - 1 do
-            local y = baseY + dy
-            buildRingLayer(centerX, y, centerZ, OUTER_R, (dy % 2 == 0) and cw0 or (not cw0))
+        -- 1) 外周ディスク 2層
+        if state.phase == "outer_disk" then
+            for dy = state.layer, DISK_H - 1 do
+                local y = baseY + dy
+                local clockwise = (dy % 2 == 0) and state.cw0 or (not state.cw0)
+                buildRingLayer(centerX, y, centerZ, OUTER_R, clockwise, ("outer_disk_y_%d"):format(y), state)
+                state.layer = dy + 1
+                saveState(state)
+            end
+            state.phase = "inner_disk"
+            state.layer = 0
+            saveState(state)
         end
 
-        -- 内周ディスク 2層（同じ中心オフセット）
-        for dy = 0, DISK_H - 1 do
-            local y = baseY + dy
-            buildRingLayer(centerX, y, centerZ, INNER_R, (dy % 2 == 0) and (not cw0) or cw0)
+        -- 2) 内周ディスク 2層（同じ中心オフセット）
+        if state.phase == "inner_disk" then
+            for dy = state.innerLayer, DISK_H - 1 do
+                local y = baseY + dy
+                local clockwise = (dy % 2 == 0) and (not state.cw0) or state.cw0
+                buildRingLayer(centerX, y, centerZ, INNER_R, clockwise, ("inner_disk_y_%d"):format(y), state)
+                state.innerLayer = dy + 1
+                saveState(state)
+            end
+            state.phase = "outer_pillars"
+            state.innerLayer = 0
+            saveState(state)
         end
 
-        -- 外周の柱 12層（柱は1本ずつ完了）
-        buildPillars(centerX, baseY + DISK_H, centerZ, OUTER_R, PILLAR_H, cw0)
-
-        -- 内周は円柱：各Yにリング（CW/CCW交互）
-        for h = 0, PILLAR_H - 1 do
-            local y = baseY + DISK_H + h
-            buildRingLayer(centerX, y, centerZ, INNER_R, ((h % 2) == 0) and cw0 or (not cw0))
+        -- 3) 外周の柱 12層（層ごとにリング巡回。下降ゼロ）
+        if state.phase == "outer_pillars" then
+            local clockwise = state.cw0
+            -- 現在の高さを baseY + DISK_H に合わせる（不足分だけ上昇）
+            local targetStartY = baseY + DISK_H
+            if turtlePos.y < targetStartY + 1 then
+                moveTo(makePosTable(turtlePos.x, targetStartY + 1, turtlePos.z), state)
+            end
+            buildPillarsLayered(centerX, targetStartY, centerZ, OUTER_R, PILLAR_H, clockwise, state)
+            state.phase = "inner_cylinder"
+            saveState(state)
         end
 
-        bundle = bundle + 1
+        -- 4) 内周は円柱：各Yにリング（CW/CCW交互）。下降ゼロ。
+        if state.phase == "inner_cylinder" then
+            for h = state.layer, PILLAR_H - 1 do
+                local y = baseY + DISK_H + h
+                local clockwise = ((h % 2) == 0) and state.cw0 or (not state.cw0)
+                buildRingLayer(centerX, y, centerZ, INNER_R, clockwise, ("inner_cyl_y_%d"):format(y), state)
+                state.layer = h + 1
+                saveState(state)
+                -- 次層へ上昇（buildRingLayer 終了後に上へ）
+                if h < PILLAR_H - 1 then assert(tryUp(), "層間上昇に失敗") end
+            end
+            -- バンドル完了 → 次のバンドルへ（さらに上方向の開始なので下降不要）
+            state.bundle = bundle + 1
+            state.phase = "outer_disk"
+            state.layer = 0
+            state.innerLayer = 0
+            state.pillarStarted = false
+            saveState(state)
+        end
     end
 end
 

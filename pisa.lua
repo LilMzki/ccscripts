@@ -443,37 +443,6 @@ local function buildPillarsLayered(cx, baseY, cz, r, height, clockwise, state)
     end
 end
 
--- ▼ 追加：状態移行（v2 → v3）
-local function upgradeStateToV3(state)
-    if not state.version or state.version < 3 then
-        local bundle = state.bundle or 0
-        local baseY  = bundle * BUNDLE_H
-        local startY = baseY + DISK_H
-
-        -- どの高さ(Y)から再開すべきかを推定
-        local h = 0
-        for hh = 0, PILLAR_H - 1 do
-            local y = startY + hh
-            local pk = ("pillar_y_%d"):format(y)
-            local rk = ("inner_cyl_y_%d"):format(y)
-            if state[pk] or state[rk] then
-                h = hh
-                break
-            end
-        end
-
-        if state.phase == "outer_pillars" or state.phase == "inner_cylinder" then
-            state.phase = "bundle_raise"
-            state.h = h
-            state.layer = 0
-            state.innerLayer = 0
-        end
-
-        state.version = 3
-        saveState(state)
-    end
-    return state
-end
 
 
 -- ▼ 追加：外周柱を“そのYで1層だけ”進める
@@ -511,6 +480,39 @@ local INNER_R = 15
 local DISK_H  = 2
 local PILLAR_H = 12
 local BUNDLE_H = DISK_H + PILLAR_H
+
+-- ▼ 追加：状態移行（v2 → v3）
+local function upgradeStateToV3(state)
+    if not state.version or state.version < 3 then
+        local bundle = state.bundle or 0
+        local baseY  = bundle * BUNDLE_H
+        local startY = baseY + DISK_H
+
+        -- どの高さ(Y)から再開すべきかを推定
+        local h = 0
+        for hh = 0, PILLAR_H - 1 do
+            local y = startY + hh
+            local pk = ("pillar_y_%d"):format(y)
+            local rk = ("inner_cyl_y_%d"):format(y)
+            if state[pk] or state[rk] then
+                h = hh
+                break
+            end
+        end
+
+        if state.phase == "outer_pillars" or state.phase == "inner_cylinder" then
+            state.phase = "bundle_raise"
+            state.h = h
+            state.layer = 0
+            state.innerLayer = 0
+        end
+
+        state.version = 3
+        saveState(state)
+    end
+    return state
+end
+
 
 local function main()
     print("== Leaning Twin-Tower Builder (Resilient + Order-Optimized) ==")

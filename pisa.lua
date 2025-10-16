@@ -443,6 +443,66 @@ local function buildPillarsLayered(cx, baseY, cz, r, height, clockwise, state)
     end
 end
 
+-- ▼ 追加：状態移行（v2 → v3）
+local function upgradeStateToV3(state)
+    if not state.version or state.version < 3 then
+        local bundle = state.bundle or 0
+        local baseY  = bundle * BUNDLE_H
+        local startY = baseY + DISK_H
+
+        -- どの高さ(Y)から再開すべきかを推定
+        local h = 0
+        for hh = 0, PILLAR_H - 1 do
+            local y = startY + hh
+            local pk = ("pillar_y_%d"):format(y)
+            local rk = ("inner_cyl_y_%d"):format(y)
+            if state[pk] or state[rk] then
+                h = hh
+                break
+            end
+        end
+
+        if state.phase == "outer_pillars" or state.phase == "inner_cylinder" then
+            state.phase = "bundle_raise"
+            state.h = h
+            state.layer = 0
+            state.innerLayer = 0
+        end
+
+        state.version = 3
+        saveState(state)
+    end
+    return state
+end
+
+
+-- ▼ 追加：外周柱を“そのYで1層だけ”進める
+local function buildPillarsOneLayer(cx, y, cz, r, clockwise, state)
+    local bases = pillarPoints(cx, y, cz, r)
+    local tmp = {}
+    for _, b in ipairs(bases) do
+        table.insert(tmp, makePosTable(b.x, y, b.z))
+    end
+    bases = dedupByXZ_sameY(tmp)
+    bases = sortByAngle(bases, cx, cz, clockwise)
+    bases = rotateToNearestStart(bases, {x = turtlePos.x, z = turtlePos.z})
+
+    local key = ("pillar_y_%d"):format(y)
+    state[key] = state[key] or { i = 1 }
+    local i = state[key].i
+
+    while i <= #bases do
+        buildAt(bases[i], state)
+        i = i + 1
+        state[key].i = i
+        saveState(state)
+    end
+
+    state[key] = nil
+    saveState(state)
+end
+
+
 --------------------------
 -- メイン：無限積み（再開対応）
 --------------------------
@@ -456,16 +516,19 @@ local function main()
     print("== Leaning Twin-Tower Builder (Resilient + Order-Optimized) ==")
 
     -- 既存の状態があればロード
+    -- 既存の default state を version=3 に
     local state = loadState() or {
-        version = 2,
+        version = 3,
         bundle = 0,
         phase = "outer_disk",
-        layer = 0, -- ディスク中の相対レイヤ
+        layer = 0,
         innerLayer = 0,
+        h = 0,            -- ← 追加：bundle_raise 用レイヤオフセット
         pillarStarted = false,
-        cw0 = true, -- バンドルごとの初期回転方向
+        cw0 = true,
     }
     applyPoseFromState(state)
+    state = upgradeStateToV3(state)  -- ← ここでv2→v3移行
 
     ensureFuel(MIN_FUEL_BUFFER, state)
 
@@ -511,18 +574,45 @@ local function main()
             saveState(state)
         end
 
-        -- 3) 外周の柱 12層（層ごとにリング巡回。下降ゼロ）
-        if state.phase == "outer_pillars" then
-            local clockwise = state.cw0
-            -- 現在の高さを baseY + DISK_H に合わせる（不足分だけ上昇）
-            local targetStartY = baseY + DISK_H
-            if turtlePos.y < targetStartY + 1 then
-                moveTo(makePosTable(turtlePos.x, targetStartY + 1, turtlePos.z), state)
-            end
-            buildPillarsLayered(centerX, targetStartY, centerZ, OUTER_R, PILLAR_H, clockwise, state)
-            state.phase = "inner_cylinder"
-            saveState(state)
+        -- 3) 同時進行：内周（リング）＋外周（柱）を“同じY”で1段ずつ上げていく
+if state.phase == "bundle_raise" then
+    local clockwisePillar = state.cw0
+    local startY = baseY + DISK_H
+
+    -- 必要なら開始高度へ（Yは基本上向きのみ）
+    if turtlePos.y < startY + 1 then
+        moveTo(makePosTable(turtlePos.x, startY + 1, turtlePos.z), state)
+    end
+
+    for h = state.h or 0, PILLAR_H - 1 do
+        local y  = startY + h
+        local cwRing = ((h % 2) == 0) and state.cw0 or (not state.cw0)
+
+        -- 先に内周リング（円柱として上げる）
+        buildRingLayer(centerX, y, centerZ, INNER_R, cwRing, ("inner_cyl_y_%d"):format(y), state)
+
+        -- 続けて同じYで外周柱を1層ぶん
+        buildPillarsOneLayer(centerX, y, centerZ, OUTER_R, clockwisePillar, state)
+
+        state.h = h + 1
+        saveState(state)
+
+        -- 次層へ。最後の層以外は上昇しておく
+        if h < PILLAR_H - 1 then
+            assert(tryUp(), "層間上昇に失敗")
         end
+    end
+
+    -- バンドル完了 → 次のバンドルへ（中心Xも+1に遷移）
+    state.bundle = bundle + 1
+    state.phase = "outer_disk"
+    state.layer = 0
+    state.innerLayer = 0
+    state.h = 0
+    state.pillarStarted = false
+    saveState(state)
+end
+
 
         -- 4) 内周は円柱：各Yにリング（CW/CCW交互）。下降ゼロ。
         if state.phase == "inner_cylinder" then

@@ -478,24 +478,38 @@ function TurtleMoveManager.prototype.goTo(self, destination)
     local dy = ____end.y - start.y
     local dz = ____end.z - start.z
     self:lookPlusZ()
-    if dz < 0 then
+
+    if dy < 0 then
+        if dz < 0 then
         local count = math.abs(dz)
         self:repeatBack(count)
-    elseif dz > 0 then
-        self:repeatForward(dz)
-    end
-    self:turnRight()
-    if dx < 0 then
-        local count = math.abs(dx)
-        self:repeatBack(count)
-    elseif dx > 0 then
-        self:repeatForward(dx)
-    end
-    if dy < 0 then
-        local count = math.abs(dy)
-        self:repeatDown(count)
-    elseif dy > 0 then
+        elseif dz > 0 then
+            self:repeatForward(dz)
+        end
+        self:turnRight()
+        if dx < 0 then
+            local count = math.abs(dx)
+            self:repeatBack(count)
+        elseif dx > 0 then
+            self:repeatForward(dx)
+        end
+        local ycount = math.abs(dy)
+        self:repeatDown(ycount)
+    else
         self:repeatUp(dy)
+        if dz < 0 then
+        local count = math.abs(dz)
+        self:repeatBack(count)
+        elseif dz > 0 then
+            self:repeatForward(dz)
+        end
+        self:turnRight()
+        if dx < 0 then
+            local count = math.abs(dx)
+            self:repeatBack(count)
+        elseif dx > 0 then
+            self:repeatForward(dx)
+        end
     end
     self:lookPlusZ()
 end

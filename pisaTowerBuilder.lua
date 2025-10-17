@@ -419,7 +419,8 @@ function TurtleReplenishManager.prototype.executeIfNecessary(self)
     local savedPos = __TS__New(Vector3, cur.x, cur.y, cur.z)
     for ____, index in ipairs(necessaryIndexes) do
         local id = self:itemIdShouldBeIn(index)
-        self.moveManager:goTo(self.resourceMap.content[id])
+        local destination = self.resourceMap.content[id]
+        self.moveManager:goTo(__TS__New(Vector3, destination.x, destination.y, destination.z - 1))
         self.turtle:setSlotIndex(index + 1)
         self.turtle:suck()
         local currentPos = self.transform:getPosition()

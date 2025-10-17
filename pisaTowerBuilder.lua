@@ -421,7 +421,7 @@ function TurtleReplenishManager.prototype.executeIfNecessary(self)
         local destination = self.resourceMap.content[id]
         self.moveManager:goTo(__TS__New(Vector3, destination.x, destination.y, destination.z - 1))
         self.turtle:setSlotIndex(index + 1)
-        self.turtle:suck(40)
+        self.turtle:suck(32)
         local currentPos = self.transform:getPosition()
         self.moveManager:goTo(__TS__New(Vector3, currentPos.x, currentPos.y + 1, currentPos.z))
     end

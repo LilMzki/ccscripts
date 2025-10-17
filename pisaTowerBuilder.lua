@@ -385,6 +385,7 @@ function TurtleRefuelManager.prototype.executeIfNecessary(self)
         self.turtle:setSlotIndex(15)
         self.turtle:suck()
         self.turtle:refuel()
+        self.turtle:up()
         self.moveManager:goTo(savedPos)
         self.executing = false
     end
@@ -419,6 +420,7 @@ function TurtleReplenishManager.prototype.executeIfNecessary(self)
         self.moveManager:goTo(self.resourceMap.content[id])
         self.turtle:setSlotIndex(index + 1)
         self.turtle:suck()
+        self.turtle:up()
     end
     self.moveManager:goTo(savedPos)
     self.isExecuting = false

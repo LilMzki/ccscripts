@@ -433,7 +433,7 @@ function TurtleReplenishManager.prototype.searchNecessaryIndexes(self)
     local result = {}
     do
         local i = 0
-        while i < 16 do
+        while i < 12 do
             self.turtle:setSlotIndex(i + 1)
             local slot = self.turtle:getSlot()
             if slot.amount <= 16 then

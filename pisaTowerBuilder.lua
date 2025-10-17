@@ -569,44 +569,44 @@ function TurtleWrapper.prototype.____constructor(self, turtle)
     self.turtle = turtle
 end
 function TurtleWrapper.prototype.forward(self)
-    self.turtle:forward()
+    self.turtle.forward()
 end
 function TurtleWrapper.prototype.back(self)
-    self.turtle:back()
+    self.turtle.back()
 end
 function TurtleWrapper.prototype.turnLeft(self)
-    self.turtle:turnLeft()
+    self.turtle.turnLeft()
 end
 function TurtleWrapper.prototype.turnRight(self)
-    self.turtle:turnRight()
+    self.turtle.turnRight()
 end
 function TurtleWrapper.prototype.up(self)
-    self.turtle:up()
+    self.turtle.up()
 end
 function TurtleWrapper.prototype.down(self)
-    self.turtle:down()
+    self.turtle.down()
 end
 function TurtleWrapper.prototype.placeDown(self)
-    self.turtle:placeDown()
+    self.turtle.placeDown()
 end
 function TurtleWrapper.prototype.getFuelLevel(self)
-    return self.turtle:getFuelLevel()
+    return self.turtle.getFuelLevel()
 end
 function TurtleWrapper.prototype.getSlot(self)
-    local value = self.turtle:getItemDetail()
+    local value = self.turtle.getItemDetail()
     if not value then
         return __TS__New(Slot, "empty", 0)
     end
     return __TS__New(Slot, value.name, value.count)
 end
 function TurtleWrapper.prototype.setSlotIndex(self, index)
-    self.turtle:select(index)
+    self.turtle.select(index)
 end
 function TurtleWrapper.prototype.suck(self)
-    self.turtle:suck()
+    self.turtle.suck()
 end
 function TurtleWrapper.prototype.refuel(self)
-    return self.turtle:refuel()
+    return self.turtle.refuel()
 end
 layerMapMaker = __TS__New(LayerMapMaker)
 layerMapMaker:init()

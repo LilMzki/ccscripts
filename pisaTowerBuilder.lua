@@ -623,7 +623,7 @@ do
         local layer = layerMapMaker:get()
         while #layer.points > 0 do
             local target = layer:findNearestPointFrom(transform:getPosition())
-            move:goTo(target)
+            move:goTo(__TS__New(Vector3, target.x, target.y + 1, target.z))
             place:execute()
             layer:visited(target)
         end

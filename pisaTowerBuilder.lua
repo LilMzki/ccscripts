@@ -386,6 +386,8 @@ function TurtleRefuelManager.prototype.executeIfNecessary(self)
         self.turtle:suck()
         self.turtle:refuel()
         self.turtle:up()
+        local currentPos = self.transform:getPosition()
+        self.moveManager:goTo(__TS__New(Vector3, currentPos.x, currentPos.y + 1, currentPos.z))
         self.moveManager:goTo(savedPos)
         self.executing = false
     end
@@ -420,7 +422,8 @@ function TurtleReplenishManager.prototype.executeIfNecessary(self)
         self.moveManager:goTo(self.resourceMap.content[id])
         self.turtle:setSlotIndex(index + 1)
         self.turtle:suck()
-        self.turtle:up()
+        local currentPos = self.transform:getPosition()
+        self.moveManager:goTo(__TS__New(Vector3, currentPos.x, currentPos.y + 1, currentPos.z))
     end
     self.moveManager:goTo(savedPos)
     self.isExecuting = false

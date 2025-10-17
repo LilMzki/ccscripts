@@ -610,7 +610,8 @@ function TurtleWrapper.prototype.refuel(self)
 end
 layerMapMaker = __TS__New(LayerMapMaker)
 layerMapMaker:init()
-tw = __TS__New(TurtleWrapper, turtle)
+local turtleAPI = turtle
+local tw = __TS__New(TurtleWrapper, turtleAPI)
 transform = __TS__New(TurtleStateTransform)
 resourceManagers = {}
 move = __TS__New(TurtleMoveManager, tw, transform, resourceManagers)

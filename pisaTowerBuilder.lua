@@ -353,13 +353,13 @@ ResourceMap = __TS__Class()
 ResourceMap.name = "ResourceMap"
 function ResourceMap.prototype.____constructor(self)
     self.content = {
-        ["minecraft:end_stone"] = __TS__New(Vector3, -2, 0, 2),
-        ["minecraft:iron_block"] = __TS__New(Vector3, 0, 0, 2),
-        ["minecraft:quartz_block"] = __TS__New(Vector3, 2, 0, 2),
-        ["minecraft:andesite"] = __TS__New(Vector3, -2, 0, 0),
-        ["mekanism:tin_block"] = __TS__New(Vector3, 2, 0, 0),
-        ["mekanism:fluorite_block"] = __TS__New(Vector3, -2, 0, -2),
-        ["minecraft:coal"] = __TS__New(Vector3, 0, 0, -2)
+        ["minecraft:end_stone"] = __TS__New(Vector3, -2, -1, 2),
+        ["minecraft:iron_block"] = __TS__New(Vector3, 0, -1, 2),
+        ["minecraft:quartz_block"] = __TS__New(Vector3, 2, -1, 2),
+        ["minecraft:andesite"] = __TS__New(Vector3, -2, -1, 0),
+        ["mekanism:tin_block"] = __TS__New(Vector3, 2, -1, 0),
+        ["mekanism:fluorite_block"] = __TS__New(Vector3, -2, -1, -2),
+        ["minecraft:coal"] = __TS__New(Vector3, 0, -1, -2)
     }
 end
 TurtleRefuelManager = __TS__Class()

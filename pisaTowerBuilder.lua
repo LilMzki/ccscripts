@@ -260,7 +260,7 @@ function TurtleStateTransform.prototype.____constructor(self)
     self.rot = Direction.PlusZ
 end
 function TurtleStateTransform.prototype.getPosition(self)
-    return self.pos
+    return __TS__New(Vector3, self.pos.x, self.pos.y, self.pos.z)
 end
 function TurtleStateTransform.prototype.getRotation(self)
     return self.rot

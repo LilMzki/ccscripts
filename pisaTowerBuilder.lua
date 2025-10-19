@@ -368,7 +368,7 @@ function TurtleRefuelManager.prototype.____constructor(self, moveManager, turtle
     self.moveManager = moveManager
     self.turtle = turtle
     self.transform = transform
-    self.threshold = 500
+    self.threshold = 1000
     self.executing = false
     self.resourceMap = __TS__New(ResourceMap)
 end
@@ -627,6 +627,7 @@ function TurtleWrapper.prototype.refuel(self)
 end
 layerMapMaker = __TS__New(LayerMapMaker)
 layerMapMaker:init()
+layerMapMaker:setHeight(7)
 local turtleAPI = turtle
 local tw = __TS__New(TurtleWrapper, turtleAPI)
 transform = __TS__New(TurtleStateTransform)

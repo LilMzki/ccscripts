@@ -7,13 +7,14 @@ local id = rednet.lookup("Turtle3DPrinter", "Master")
 
 if id then
     rednet.send(id, string.format("first %s", xPos));
-    print(rednet.receive());
+    local _, rawMsg = rednet.receive()
+    print(rawMsg);
     print("please enter 'yes' if inventory setup done")
     input = read()
     if(input == "yes") then
         rednet.send(id, "second")
         print("wait for every turtle to have done setting up")
-        rawCommands = rednet.receive()
+        local _, rawCommands = rednet.receive()
         for i=1,#rawCommands do
             local firstChar = string.sub(rawCommands, i, i)
             if firstChar == "f" then

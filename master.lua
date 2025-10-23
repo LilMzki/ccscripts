@@ -767,7 +767,7 @@ function AbstractCommandsPresenter.prototype.execute(self)
             y = y + 1
             else
             do
-                local z = self.structure.scale.z - 2
+                local z = self.structure.scale.z - 1
                 while z >= 0 do
                     local blockId = self.posToBlock:execute(__TS__New(Vec3, self.workerXPos, y, z))
                     if blockId then
@@ -779,7 +779,7 @@ function AbstractCommandsPresenter.prototype.execute(self)
                     z = z - 1
                 end
             end
-            local blockId = self.posToBlock:execute(__TS__New(Vec3, self.workerXPos, y, self.structure.scale.z - 1))
+            local blockId = self.posToBlock:execute(__TS__New(Vec3, self.workerXPos, y, 0))
             if blockId then
                 if self.inventoryState:canConsume(blockId) then
                     self.inventoryState:consume(blockId)

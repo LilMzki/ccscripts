@@ -534,7 +534,7 @@ function WorkerInventoryState.prototype.consume(self, itemId)
         local i = 1
         while i <= 16 do
             local stack = self.content:getStackBy(i)
-            if (stack and stack.Id) == itemId then
+            if (stack and stack.Id) == itemId and stack.Amount > 0 then
                 stack:setAmount(stack.Amount - 1)
                 local eventArgs = __TS__New(ItemConsumedEventArgs, i, itemId)
                 self.consumedEvent:notify(eventArgs)
@@ -768,7 +768,7 @@ function AbstractCommandsPresenter.prototype.execute(self)
             else
             do
                 local z = self.structure.scale.z - 1
-                while z >= 0 do
+                while z >= 1 do
                     local blockId = self.posToBlock:execute(__TS__New(Vec3, self.workerXPos, y, z))
                     if blockId then
                         if self.inventoryState:canConsume(blockId) then

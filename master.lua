@@ -768,21 +768,27 @@ function AbstractCommandsPresenter.prototype.execute(self)
     end
     return self.commands:build()
 end
-blockDict = {[0] = "minecraft:air", [1] = "minecraft:cobblestone"}
+blockDict = {[0] = "minecraft:air", [1] = "minecraft:glow_stone"}
 logic = function(____, p)
-    local center = __TS__New(Vec3, 2, 2, 2)
-    local r = 2
-    local dx = math.abs(p.x - center.x)
-    local dy = math.abs(p.y - center.y)
-    local dz = math.abs(p.z - center.z)
-    if dx ^ 2 + dy ^ 2 + dz ^ 2 <= r ^ 2 then
+    local center_1 = __TS__New(Vec3, 0, 0, 0)
+    local center_2 = __TS__New(Vec3, 31, 31, 31)
+    local a = 32;
+    local r = (math.sqrt(3) / 4) * a;
+    local dx_1 = math.abs(p.x - center_1.x)
+    local dy_1 = math.abs(p.y - center_1.y)
+    local dz_1 = math.abs(p.z - center_1.z)
+
+    local dx_2 = math.abs(p.x - center_2.x)
+    local dy_2 = math.abs(p.y - center_2.y)
+    local dz_2 = math.abs(p.z - center_2.z)
+
+    if dx_1 * dx_1 + dy_1 * dy_1 + dz_1 * dz_1 <= r*r or dx_2 * dx_2 + dy_2 * dy_2 + dz_2 * dz_2 <= r*r then
         return 1
-    else
-        return 0
     end
+    return 0
 end
 builder = __TS__New(ProceduralStructureBuilder)
-scale = __TS__New(Vec3, 5, 5, 5)
+scale = __TS__New(Vec3, 32, 32, 32)
 structure = builder:execute(scale, logic)
 resourceCalc = __TS__New(ResourceCalculator, structure, blockDict)
 WorkerConnectionProgress = __TS__Class()

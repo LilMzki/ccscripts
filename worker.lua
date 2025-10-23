@@ -13,7 +13,7 @@ if id then
     if(input == "yes") then
         rednet.send(id, "second")
         print("wait for every turtle to have done setting up")
-        local rawCommands = rednet.receive()
+        rawCommands = rednet.receive()
         for i=1,#rawCommands do
             local firstChar = string.sub(rawCommands, i, i)
             if firstChar == "f" then

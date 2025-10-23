@@ -30,14 +30,14 @@ if id then
             elseif firstChar == "s" then
                 local thirdChar = string.sub(rawCommands, i+2, i+2)
                 local slotId = 0
-                if tonumber(thirdChar) then
+                if not tonumber(thirdChar) == 0 then
                     slotId = tonumber(string.sub(rawCommands, i+1, i+2))
                 else
                     slotId = tonumber(string.sub(rawCommands, i+1, i+1))
                 end
-                --turtle.sleep(0.1)
-                print(string.format("slotId: %s"), slotId)
+
                 turtle.select(slotId)
+                sleep(0.1)
             end
         end
         print("done")

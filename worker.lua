@@ -35,9 +35,9 @@ if id then
                 else
                     slotId = tonumber(string.sub(rawCommands, i+1, i+1))
                 end
-                --turtle.sleep(0.1)
-                print(string.format("slotId: %s"), slotId)
+                sleep(0.1)
                 turtle.select(slotId)
+                sleep(0.1)
             end
         end
         print("done")

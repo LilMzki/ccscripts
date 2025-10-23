@@ -15,6 +15,7 @@ if id then
         rednet.send(id, "second")
         print("wait for every turtle to have done setting up")
         local _, rawCommands = rednet.receive()
+        print(rawCommands)
         for i=1,#rawCommands do
             local firstChar = string.sub(rawCommands, i, i)
             if firstChar == "f" then
@@ -34,7 +35,8 @@ if id then
                 else
                     slotId = tonumber(string.sub(rawCommands, i+1, i+1))
                 end
-                sleep(0.1);
+                --turtle.sleep(0.1)
+                print(string.format("slotId: %s"), slotId)
                 turtle.select(slotId)
             end
         end

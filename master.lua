@@ -802,49 +802,43 @@ workerConnectionStates = {}
 rednet.open("right")
 rednet.host("Turtle3DPrinter", "Master")
 do
-    local i = 0
-    while i < scale.x * 2 do
-        local workerId, msg, protocol = rednet.receive()
-        local messages = {}
-        for tok in tostring(msg):gmatch("%S+") do
-        messages[#messages+1] = tok
-        end
-        if messages[1] == "first" then
-            local xPos = tonumber(messages[2]) or -1
-            local newState = __TS__New(WorkerConnectionProgress, workerId)
-            newState.xPos = xPos
-            workerConnectionStates[#workerConnectionStates + 1] = newState
-            local resourcesPresenter = __TS__New(ResourcesPresenter, resourceCalc)
-            rednet.send(
-                workerId,
-                resourcesPresenter:execute(xPos)
-            )
-        elseif msg[0] == "second" then
-            for ____, state in ipairs(workerConnectionStates) do
-                if state.workerId == workerId then
-                    state.readyToBuild = true
-                end
-            end
-            if #__TS__ArrayFilter(
-                workerConnectionStates,
-                function(____, state) return state.readyToBuild end
-            ) == #workerConnectionStates then
-                for ____, state in ipairs(workerConnectionStates) do
-                    local commandPresenter = __TS__New(
-                        AbstractCommandsPresenter,
-                        structure,
-                        resourceCalc,
-                        state,
-                        __TS__New(PosToBlock, structure, blockDict)
-                    )
-                    rednet.send(
-                        state.workerId,
-                        commandPresenter:execute()
-                    )
-                end
-                break
-            end
-        end
-        i = i + 1
+  while true do
+    local workerId, msg, protocol = rednet.receive()
+    local messages = {}
+    for tok in tostring(msg):gmatch("%S+") do
+      messages[#messages+1] = tok
     end
+
+    if messages[1] == "first" then
+      local xPos = tonumber(messages[2]) or -1
+      local newState = __TS__New(WorkerConnectionProgress, workerId)
+      newState.xPos = xPos
+      workerConnectionStates[#workerConnectionStates + 1] = newState
+
+      local resourcesPresenter = __TS__New(ResourcesPresenter, resourceCalc)
+      rednet.send(workerId, resourcesPresenter:execute(xPos))
+
+    elseif messages[1] == "second" then  -- ← ここを修正
+      for ____, state in ipairs(workerConnectionStates) do
+        if state.workerId == workerId then
+          state.readyToBuild = true
+        end
+      end
+
+      if #__TS__ArrayFilter(workerConnectionStates, function(____, s) return s.readyToBuild end)
+         == #workerConnectionStates then
+        for ____, state in ipairs(workerConnectionStates) do
+          local commandPresenter = __TS__New(
+            AbstractCommandsPresenter,
+            structure,
+            resourceCalc,
+            state,
+            __TS__New(PosToBlock, structure, blockDict)
+          )
+          rednet.send(state.workerId, commandPresenter:execute())
+        end
+        break
+      end
+    end
+  end
 end

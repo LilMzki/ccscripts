@@ -742,6 +742,7 @@ function AbstractCommandsPresenter.prototype.execute(self)
     do
         local y = 0
         while y < self.structure.scale.y do
+            if y % 2 == 0 then
             do
                 local z = 0
                 while z < self.structure.scale.z - 1 do
@@ -764,6 +765,30 @@ function AbstractCommandsPresenter.prototype.execute(self)
             self.commands:turn()
             self.commands:up()
             y = y + 1
+            else
+            do
+                local z = self.structure.scale.z - 2
+                while z >= 0 do
+                    local blockId = self.posToBlock:execute(__TS__New(Vec3, self.workerXPos, y, z))
+                    if blockId then
+                        if self.inventoryState:canConsume(blockId) then
+                            self.inventoryState:consume(blockId)
+                        end
+                    end
+                    self.commands:forward()
+                    z = z - 1
+                end
+            end
+            local blockId = self.posToBlock:execute(__TS__New(Vec3, self.workerXPos, y, self.structure.scale.z - 1))
+            if blockId then
+                if self.inventoryState:canConsume(blockId) then
+                    self.inventoryState:consume(blockId)
+                end
+            end
+            self.commands:turn()
+            self.commands:up()
+            y = y + 1
+            end
         end
     end
     return self.commands:build()

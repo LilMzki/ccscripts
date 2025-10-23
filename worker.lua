@@ -34,7 +34,7 @@ if id then
                 else
                     slotId = tonumber(string.sub(rawCommands, i+1, i+1))
                 end
-                turtle.sleep(0.1);
+                sleep(0.1);
                 turtle.select(slotId)
             end
         end
